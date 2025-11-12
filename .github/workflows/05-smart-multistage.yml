@@ -1,0 +1,107 @@
+name: 05 Smart Multistage
+
+on:
+  push:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Run NUnit tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+  deploy-dev:
+    name: Deploy to DEV
+    runs-on: ubuntu-latest
+    needs: test
+    # Deploya till dev om tester passerat och branchen INTE är main
+    if: ${{ needs.test.result == 'success' && github.ref != 'refs/heads/main' }}
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Bonus: publicera för att simulera en riktig deploy
+      - name: Publish
+        run: dotnet publish -c Release -o ./out/${{ vars.SERVICE_NAME }}
+
+      - name: Simulate deploy to DEV
+        run: |
+          echo "Deploying ${{ vars.SERVICE_NAME }} to DEV..."
+          echo "Published files:"
+          ls -la ./out/${{ vars.SERVICE_NAME }}
+          echo "✅ DEV deployment completed successfully"
+
+  deploy-prod:
+    name: Deploy to PROD
+    runs-on: ubuntu-latest
+    needs: test
+    # Deploya till prod om testerna passerar och branch är main
+    if: ${{ needs.test.result == 'success' && github.ref == 'refs/heads/main' }}
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Bonus: publicera för att simulera en riktig deploy
+      - name: Publish
+        run: dotnet publish -c Release -o ./out/${{ vars.SERVICE_NAME }}
+
+      # Visa repo-variabeln (SERVICE_NAME)
+      - name: Show service name
+        run: echo "Deploying service ${{ vars.SERVICE_NAME }}"
+
+      # Visa secret (kommer maskeras automatiskt i loggen)
+      - name: Show masked secret
+        run: |
+          echo "Using PROD_API_KEY (masked): ${{ secrets.PROD_API_KEY }}"
+          # Extra säkerhet: tvinga maskning även om GitHub redan maskerar
+          echo "::add-mask::${{ secrets.PROD_API_KEY }}"
+
+      - name: Simulate deploy to PROD
+        run: |
+          echo "Deploying ${{ vars.SERVICE_NAME }} to PROD..."
+          echo "Published files:"
+          ls -la ./out/${{ vars.SERVICE_NAME }}
+          echo "✅ Deployment completed successfully"
