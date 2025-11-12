@@ -39,7 +39,7 @@ jobs:
         run: dotnet restore
 
       - name: Run NUnit tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test --configuration Release --verbosity normal
 
   deploy-dev:
     name: Deploy to DEV
